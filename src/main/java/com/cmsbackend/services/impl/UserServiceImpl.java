@@ -15,6 +15,7 @@ import com.cmsbackend.dtos.UserRequestDto;
 import com.cmsbackend.dtos.UserResponseDto;
 import com.cmsbackend.entities.Citizen;
 import com.cmsbackend.entities.User;
+import com.cmsbackend.enums.Role;
 import com.cmsbackend.repositories.CitizenRepository;
 import com.cmsbackend.repositories.UserRepository;
 import com.cmsbackend.services.UserService;
@@ -64,7 +65,7 @@ public class UserServiceImpl implements UserService {
         user.setEmail(email);
 
         // Assign the role on the backend
-        user.setUserRole("CITIZEN");
+        user.setUserRole(Role.ROLE_CITIZEN);
 
         // Encode  password
         String encodedPassword =
@@ -79,6 +80,7 @@ public class UserServiceImpl implements UserService {
         // Create the corresponding Citizen profile
         Citizen citizen = new Citizen();
         citizen.setUser(savedUser);
+        savedUser.setCitizen(citizen);
 
         citizenRepository.save(citizen);
 

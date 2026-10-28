@@ -3,6 +3,8 @@ package com.cmsbackend.dtos;
 
 import java.time.LocalDateTime;
 
+import com.cmsbackend.enums.Role;
+
 import lombok.Data;
 
 @Data
@@ -20,7 +22,7 @@ public class UserResponseDto {
 
     private String address;
 
-    private String userRole;
+    private Role role;
 
     private LocalDateTime createdAt;
 }
