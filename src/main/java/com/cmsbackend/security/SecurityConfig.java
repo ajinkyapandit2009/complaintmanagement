@@ -60,6 +60,7 @@ public class SecurityConfig {
             	    	    org.springframework.http.HttpMethod.GET,
             	    	    "/api/complaints/my"
             	    	).hasRole("CITIZEN")
+            	    .requestMatchers("/api/officer/**").hasRole("OFFICER")
             	    .anyRequest().authenticated()
             	);
         

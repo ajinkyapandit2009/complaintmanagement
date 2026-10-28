@@ -21,4 +21,6 @@ public interface ComplaintService {
             AssignComplaintRequestDto requestDto,
             String adminEmail
     );
+    
+    List<ComplaintResponseDto> getAssignedComplaints(String email);
 }

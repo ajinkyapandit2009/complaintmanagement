@@ -14,4 +14,8 @@ public interface ComplaintRepository
     List<Complaint> findByCitizen_UserIdOrderByCreatedAtDesc(
             Integer citizenId
     );
+    
+    List<Complaint> findByOfficer_UserIdOrderByCreatedAtDesc(
+            Integer officerId
+    );
 }

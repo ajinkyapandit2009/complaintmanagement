@@ -179,5 +179,41 @@ public class ComplaintServiceImpl implements ComplaintService {
 
 		return responseDto;
 	}
+	
+	
+	@Override
+	@Transactional(readOnly = true)
+	public List<ComplaintResponseDto> getAssignedComplaints(String email) {
+
+	    User user = userRepository.findByEmail(email)
+	            .orElseThrow(() -> new ResponseStatusException(
+	                    HttpStatus.NOT_FOUND,
+	                    "User account not found"));
+
+	    if (user.getUserRole() != Role.ROLE_OFFICER) {
+	        throw new ResponseStatusException(
+	                HttpStatus.FORBIDDEN,
+	                "Only case officers can view assigned complaints");
+	    }
+
+	    CaseOfficer officer = caseOfficerRepository.findById(user.getUserId())
+	            .orElseThrow(() -> new ResponseStatusException(
+	                    HttpStatus.NOT_FOUND,
+	                    "Case officer profile not found"));
+
+	    List<Complaint> complaints =
+	            complaintRepository.findByOfficer_UserIdOrderByCreatedAtDesc(
+	                    officer.getUserId());
+
+	    return complaints.stream().map(complaint -> {
+	        ComplaintResponseDto dto =
+	                modelMapper.map(complaint, ComplaintResponseDto.class);
+
+	        dto.setCitizenId(complaint.getCitizen().getUserId());
+	        dto.setOfficerId(officer.getUserId());
+
+	        return dto;
+	    }).toList();
+	}
 
 }

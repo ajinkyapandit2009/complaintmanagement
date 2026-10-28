@@ -12,6 +12,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -23,6 +24,7 @@ import com.cmsbackend.dtos.LoginRequestDto;
 import com.cmsbackend.dtos.LoginResponseDto;
 import com.cmsbackend.dtos.UserResponseDto;
 import com.cmsbackend.entities.User;
+import com.cmsbackend.repositories.UserRepository;
 import com.cmsbackend.security.jwt.JwtUtils;
 
 import jakarta.validation.Valid;
@@ -39,6 +41,12 @@ public class AuthController {
 
     @Autowired
     private ModelMapper modelMapper;
+    
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     @GetMapping("/me")
     public ResponseEntity<UserResponseDto> getCurrentUser(
@@ -62,6 +70,7 @@ public class AuthController {
                     .trim()
                     .toLowerCase(Locale.ROOT);
 
+            
             // Authenticate user credentials
             Authentication authentication =
                     authenticationManager.authenticate(
