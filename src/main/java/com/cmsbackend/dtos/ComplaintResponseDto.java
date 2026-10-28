@@ -41,4 +41,12 @@ public class ComplaintResponseDto {
     private Integer citizenId;
 
     private Integer officerId;
+    
+    private String citizenName;
+    
+    private String citizenEmail;
+    
+    private String officerName;
+    
+    private String officerEmployeeNumber;
 }

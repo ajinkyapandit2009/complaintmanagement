@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,6 +14,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.cmsbackend.dtos.AssignComplaintRequestDto;
 import com.cmsbackend.dtos.ComplaintRequestDto;
 import com.cmsbackend.dtos.ComplaintResponseDto;
+import com.cmsbackend.dtos.UpdateComplaintStatusRequestDto;
 import com.cmsbackend.entities.CaseOfficer;
 import com.cmsbackend.entities.Citizen;
 import com.cmsbackend.entities.Complaint;
@@ -179,41 +181,153 @@ public class ComplaintServiceImpl implements ComplaintService {
 
 		return responseDto;
 	}
-	
-	
+
 	@Override
 	@Transactional(readOnly = true)
 	public List<ComplaintResponseDto> getAssignedComplaints(String email) {
 
-	    User user = userRepository.findByEmail(email)
-	            .orElseThrow(() -> new ResponseStatusException(
-	                    HttpStatus.NOT_FOUND,
-	                    "User account not found"));
+		User user = userRepository.findByEmail(email)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User account not found"));
 
-	    if (user.getUserRole() != Role.ROLE_OFFICER) {
-	        throw new ResponseStatusException(
-	                HttpStatus.FORBIDDEN,
-	                "Only case officers can view assigned complaints");
-	    }
+		if (user.getUserRole() != Role.ROLE_OFFICER) {
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only case officers can view assigned complaints");
+		}
 
-	    CaseOfficer officer = caseOfficerRepository.findById(user.getUserId())
-	            .orElseThrow(() -> new ResponseStatusException(
-	                    HttpStatus.NOT_FOUND,
-	                    "Case officer profile not found"));
+		CaseOfficer officer = caseOfficerRepository.findById(user.getUserId())
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Case officer profile not found"));
 
-	    List<Complaint> complaints =
-	            complaintRepository.findByOfficer_UserIdOrderByCreatedAtDesc(
-	                    officer.getUserId());
+		List<Complaint> complaints = complaintRepository.findByOfficer_UserIdOrderByCreatedAtDesc(officer.getUserId());
 
-	    return complaints.stream().map(complaint -> {
-	        ComplaintResponseDto dto =
-	                modelMapper.map(complaint, ComplaintResponseDto.class);
+		return complaints.stream().map(complaint -> {
+			ComplaintResponseDto dto = modelMapper.map(complaint, ComplaintResponseDto.class);
 
-	        dto.setCitizenId(complaint.getCitizen().getUserId());
-	        dto.setOfficerId(officer.getUserId());
+			dto.setCitizenId(complaint.getCitizen().getUserId());
+			dto.setOfficerId(officer.getUserId());
 
-	        return dto;
-	    }).toList();
+			return dto;
+		}).toList();
+	}
+
+	@Override
+	@Transactional
+	public ComplaintResponseDto updateComplaintStatus(Integer complaintId, UpdateComplaintStatusRequestDto requestDto,
+			String officerEmail) {
+
+		// 1. Find the logged-in user
+		User officerUser = userRepository.findByEmail(officerEmail)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User account not found"));
+
+		// 2. Verify the user's role
+		if (officerUser.getUserRole() != Role.ROLE_OFFICER) {
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only case officers can update complaint status");
+		}
+
+		// 3. Find the officer profile
+		CaseOfficer officer = caseOfficerRepository.findById(officerUser.getUserId())
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Case officer profile not found"));
+
+		// 4. Find the complaint
+		Complaint complaint = complaintRepository.findById(complaintId)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Complaint not found"));
+
+		// 5. Ensure this complaint is assigned to this officer
+		if (complaint.getOfficer() == null || !officer.getUserId().equals(complaint.getOfficer().getUserId())) {
+
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "This complaint is not assigned to you");
+		}
+
+		// 6. Check whether the requested transition is allowed
+		ComplaintStatus previousStatus = complaint.getStatus();
+		ComplaintStatus newStatus = requestDto.getStatus();
+
+		boolean allowed = (previousStatus == ComplaintStatus.ASSIGNED
+				&& (newStatus == ComplaintStatus.IN_PROGRESS || newStatus == ComplaintStatus.REJECTED))
+				|| (previousStatus == ComplaintStatus.IN_PROGRESS
+						&& (newStatus == ComplaintStatus.RESOLVED || newStatus == ComplaintStatus.REJECTED));
+
+		if (!allowed) {
+			throw new ResponseStatusException(HttpStatus.CONFLICT, "This status transition is not allowed");
+		}
+
+		// 7. Update the complaint status
+		complaint.setStatus(newStatus);
+
+		Complaint savedComplaint = complaintRepository.save(complaint);
+
+		// 8. Record the change in complaint_history
+		ComplaintHistory history = new ComplaintHistory();
+
+		history.setComplaint(savedComplaint);
+		history.setPreviousStatus(previousStatus.name());
+		history.setNewStatus(newStatus.name());
+		history.setUpdatedBy(officerUser);
+
+		String remarks = requestDto.getRemarks();
+
+		if (remarks == null || remarks.isBlank()) {
+			remarks = "Status changed from " + previousStatus.name() + " to " + newStatus.name();
+		}
+
+		history.setRemarks(remarks.trim());
+
+		complaintHistoryRepository.save(history);
+
+		// 9. Return the updated complaint
+		ComplaintResponseDto responseDto = modelMapper.map(savedComplaint, ComplaintResponseDto.class);
+
+		responseDto.setCitizenId(savedComplaint.getCitizen().getUserId());
+
+		responseDto.setOfficerId(officer.getUserId());
+
+		return responseDto;
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public List<ComplaintResponseDto> getAllComplaints(String adminEmail,ComplaintStatus status,ComplaintPriority priority) {
+
+		// 1. Verify the logged-in admin
+		User admin = userRepository.findByEmail(adminEmail)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Admin account not found"));
+
+		if (admin.getUserRole() != Role.ROLE_ADMIN) {
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only admins can view all complaints");
+		}
+
+		// 2. Retrieve complaints, newest first
+		List<Complaint> complaints =
+		        complaintRepository.findWithOptionalFilters(
+		                status,
+		                priority
+		        );
+		// 3. Convert entities to response DTOs
+		return complaints.stream().map(complaint -> {
+
+			ComplaintResponseDto dto = modelMapper.map(complaint, ComplaintResponseDto.class);
+
+			Citizen citizen = complaint.getCitizen();
+			User citizenUser = citizen.getUser();
+
+			dto.setCitizenId(citizen.getUserId());
+			dto.setCitizenName(citizenUser.getFirstName() + " " + citizenUser.getLastName());
+			dto.setCitizenEmail(citizenUser.getEmail());
+
+			CaseOfficer officer = complaint.getOfficer();
+
+			if (officer != null) {
+				User officerUser = officer.getUser();
+
+				dto.setOfficerId(officer.getUserId());
+				dto.setOfficerName(officerUser.getFirstName() + " " + officerUser.getLastName());
+				dto.setOfficerEmployeeNumber(officer.getEmployeeNumber());
+			} else {
+				dto.setOfficerId(null);
+				dto.setOfficerName(null);
+				dto.setOfficerEmployeeNumber(null);
+			}
+
+			return dto;
+		}).toList();
 	}
 
 }

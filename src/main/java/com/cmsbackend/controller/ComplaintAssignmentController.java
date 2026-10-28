@@ -3,9 +3,13 @@ package com.cmsbackend.controller;
 
 import com.cmsbackend.dtos.AssignComplaintRequestDto;
 import com.cmsbackend.dtos.ComplaintResponseDto;
+import com.cmsbackend.enums.ComplaintPriority;
+import com.cmsbackend.enums.ComplaintStatus;
 import com.cmsbackend.services.ComplaintService;
 
 import jakarta.validation.Valid;
+
+import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -36,4 +40,25 @@ public class ComplaintAssignmentController {
                 .status(HttpStatus.OK)
                 .body(response);
     }
+   
+
+
+@GetMapping
+public ResponseEntity<List<ComplaintResponseDto>> getAllComplaints(
+        @RequestParam(required = false) ComplaintStatus status,
+        @RequestParam(required = false) ComplaintPriority priority,
+        Authentication authentication) {
+
+    List<ComplaintResponseDto> complaints =
+            complaintService.getAllComplaints(
+                    authentication.getName(),
+                    status,
+                    priority
+            );
+
+    return ResponseEntity.ok(complaints);
+}
+
+
+
 }
