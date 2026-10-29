@@ -33,12 +33,6 @@ public class CaseOfficer {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(length = 100)
-    private String department;
-
-    @Column(length = 100)
-    private String designation;
-
     @Column(name = "employee_number",nullable = false, unique = true, length = 50)
     private String employeeNumber;
     

@@ -44,5 +44,4 @@ public class ComplaintRequestDto {
     @Size(max = 2048)
     private String imageUrl;
 
-    private ComplaintPriority priority;
 }

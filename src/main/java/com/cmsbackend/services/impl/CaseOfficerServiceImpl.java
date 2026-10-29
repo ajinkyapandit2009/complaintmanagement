@@ -1,3 +1,4 @@
+
 package com.cmsbackend.services.impl;
 
 import org.modelmapper.ModelMapper;
@@ -53,23 +54,14 @@ public class CaseOfficerServiceImpl implements CaseOfficerService {
                     "A case officer profile already exists for this user");
         }
 
-        // 4. Check employee number uniqueness
-        String employeeNumber =
-                requestDto.getEmployeeNumber().trim();
-
-        if (caseOfficerRepository.existsByEmployeeNumber(employeeNumber)) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Employee number already exists");
-        }
+        // 4. Generate employee number automatically
+        String employeeNumber = generateEmployeeNumber();
 
         // 5. Create the entity manually
         // @MapsId derives userId from the associated User
         CaseOfficer caseOfficer = new CaseOfficer();
 
         caseOfficer.setUser(user);
-        caseOfficer.setDepartment(requestDto.getDepartment());
-        caseOfficer.setDesignation(requestDto.getDesignation());
         caseOfficer.setEmployeeNumber(employeeNumber);
 
         // 6. Save the officer profile
@@ -88,5 +80,25 @@ public class CaseOfficerServiceImpl implements CaseOfficerService {
         responseDto.setEmail(user.getEmail());
 
         return responseDto;
+    }
+
+    // Generate the next employee number using the highest existing number
+    private String generateEmployeeNumber() {
+
+        CaseOfficer lastOfficer =
+                caseOfficerRepository.findTopByOrderByEmployeeNumberDesc();
+
+        int nextNumber = 1;
+
+        if (lastOfficer != null
+                && lastOfficer.getEmployeeNumber() != null) {
+
+            String lastNumber = lastOfficer.getEmployeeNumber()
+                    .replace("CMS-OFF-", "");
+
+            nextNumber = Integer.parseInt(lastNumber) + 1;
+        }
+
+        return String.format("CMS-OFF-%03d", nextNumber);
     }
 }

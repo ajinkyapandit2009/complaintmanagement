@@ -51,4 +51,10 @@ public class ComplaintHistory {
     @CreationTimestamp
     @Column(name = "updated_at", nullable = false, updatable = false)
     private LocalDateTime updatedAt;
+    
+    @Column(name = "previous_priority", length = 20)
+    private String previousPriority;
+
+    @Column(name = "new_priority", length = 20)
+    private String newPriority;
 }

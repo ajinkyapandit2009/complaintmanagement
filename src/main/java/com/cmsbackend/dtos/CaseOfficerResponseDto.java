@@ -14,9 +14,5 @@ public class CaseOfficerResponseDto {
 
     private String email;
 
-    private String department;
-
-    private String designation;
-
     private String employeeNumber;
 }

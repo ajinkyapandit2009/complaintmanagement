@@ -12,4 +12,6 @@ public interface CaseOfficerRepository
 
 	
 	boolean existsByEmployeeNumber(String employeeNumber);
+	
+	CaseOfficer findTopByOrderByEmployeeNumberDesc();
 }
